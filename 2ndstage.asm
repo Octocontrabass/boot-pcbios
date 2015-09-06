@@ -872,43 +872,43 @@ section .text
     cpu 8086
     
 print:
-	; Print a null-terminated string.
-	push ax
-	push bx
-	push bp ; BIOS bugs
-	push si
-	mov bx, 0x0007
+    ; Print a null-terminated string.
+    push ax
+    push bx
+    push bp ; BIOS bugs
+    push si
+    mov bx, 0x0007
 .loop:
-	mov ah, 0x0e
-	lodsb
-	or al, al
-	jz .done
-	int 0x10
-	jmp .loop
+    mov ah, 0x0e
+    lodsb
+    or al, al
+    jz .done
+    int 0x10
+    jmp .loop
 .done:
-	pop si
-	pop bp
-	pop bx
-	pop ax
-	ret
+    pop si
+    pop bp
+    pop bx
+    pop ax
+    ret
     
     
 printcrlf:
-	call print
-	call crlf
-	ret
-	
-	
+    call print
+    call crlf
+    ret
+    
+    
 crlf:
-	push si
-	mov si, .crlf
-	call print
-	pop si
-	ret
-	
+    push si
+    mov si, .crlf
+    call print
+    pop si
+    ret
+    
 section .data
 
-.crlf	db 13,10,0
+.crlf   db 13,10,0
 
 section .text
 
@@ -919,7 +919,7 @@ separator:
     call print
     pop si
     ret
-	
+    
 section .data
 
 .separator: db "-",0
@@ -928,54 +928,54 @@ section .text
 
 
 printhex:
-	; Print a variable number of hex digits.
-	; Place the digits in ax, the length in cx, and call.
-	push ax
-	push cx
-	push dx
-	push bx
-	push bp
-	mov bx, cx
+    ; Print a variable number of hex digits.
+    ; Place the digits in ax, the length in cx, and call.
+    push ax
+    push cx
+    push dx
+    push bx
+    push bp
+    mov bx, cx
 .pushloop
-	mov dx, ax
-	and al, 0x0f
-	cmp al, 0x0a
-	sbb al, 0x69
-	das
-	mov ah, 0x0e
-	push ax
-	xchg ax, dx
-	push cx
-	mov cl, 4
-	shr ax, cl
-	pop cx
-	loop .pushloop
-	mov cx, bx
-	mov bx, 0x0007
+    mov dx, ax
+    and al, 0x0f
+    cmp al, 0x0a
+    sbb al, 0x69
+    das
+    mov ah, 0x0e
+    push ax
+    xchg ax, dx
+    push cx
+    mov cl, 4
+    shr ax, cl
+    pop cx
+    loop .pushloop
+    mov cx, bx
+    mov bx, 0x0007
 .poploop
-	pop ax
-	int 0x10
-	loop .poploop
-	pop bp
-	pop bx
-	pop dx
-	pop cx
-	pop ax
-	ret
-	
-	
-	cpu 386
+    pop ax
+    int 0x10
+    loop .poploop
+    pop bp
+    pop bx
+    pop dx
+    pop cx
+    pop ax
+    ret
+    
+    
+    cpu 386
 printhex_386:
-	cmp cx, 4
-	jbe printhex
-	push cx
-	push eax
-	shr eax, 16
-	sub cx, 4
-	call printhex
-	pop eax
-	mov cx, 4
-	call printhex
-	pop cx
-	ret
-	cpu 8086
+    cmp cx, 4
+    jbe printhex
+    push cx
+    push eax
+    shr eax, 16
+    sub cx, 4
+    call printhex
+    pop eax
+    mov cx, 4
+    call printhex
+    pop cx
+    ret
+    cpu 8086
