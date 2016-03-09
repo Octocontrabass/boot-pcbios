@@ -1,4 +1,4 @@
-﻿; FAT12/FAT16 bootloader for PC-compatibles.
+; FAT12/FAT16 bootloader for PC-compatibles.
 
 ; Minimum requirement: INT 13 function 08 must work on the boot device. For
 ;   hard disks, this function should always be available. For floppy disks,
@@ -108,9 +108,11 @@ highstart:
     xor di, di
     push bp
     mov bp, sp
-.newsector:
-    call readsector
 .loop:
+    and di, 0x01e0
+    jnz .nonewsector
+    call readsector
+.nonewsector:
     push cx
     push si
     mov cx, 11
@@ -118,13 +120,8 @@ highstart:
     je loadfile
     pop si
     pop cx
-    dec cx
     add di, 32
-    and di, 0x01e0
-    jcxz .disk_error
-    jz .newsector
-    jmp .loop
-.disk_error:
+    loop .loop
     jmp disk_error
 loadfile:
     ;xchg bx, bx
@@ -134,7 +131,7 @@ loadfile:
     dec ax
     push ax     ; bp-10 -> currently loaded FAT sector
     mov ax, [bpb_entries]
-    mov cx, 4
+    mov cl, 4
     shr ax, cl
     cwd
     add [bp-8], ax
@@ -188,8 +185,7 @@ loadfile:
     and si, dx
     mov ah, [si+0x200]
     pop cx
-    test cx, cx
-    jz .noshift
+    jcxz .noshift
     mov cl, 4
     shr ax, cl
 .noshift:
