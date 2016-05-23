@@ -52,10 +52,6 @@ bpb_startlba:   dd 0
 
 start:
     cli
-    call realstart
-realstart:
-    pop si
-    lea si, [si-(realstart-fakestart)] ; cs:si points to self
     int 0x12 ; find out how much of the "640k" is actually open
 %if RAMSIZE == 4
     mov cl, 6
@@ -67,7 +63,6 @@ realstart:
     mov cl, 6
     shl ax, cl
 %endif
-    mov ds, ax
     mov es, ax
     mov ss, ax
 %if RAMSIZE == 4
@@ -76,9 +71,12 @@ realstart:
     mov sp, 0x0800 ; stack at 2k
 %endif
     cld
+    mov si, 0x7c00
     xor di, di
+    mov ds, di
     mov cx, 0x100
-    rep cs movsw
+    rep movsw
+    mov ds, ax
     sti
     mov cl, highstart - fakestart
     push es
