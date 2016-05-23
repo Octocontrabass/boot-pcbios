@@ -5,9 +5,28 @@
 ;   this function should be available if the BIOS supports 3½-inch disks (even
 ;   when booting a 5¼-inch disk).
 ; Limitations: Sectors must be 512 bytes. The filesystem must be within the
-;   first 2TiB of the disk.
+;   first 2TiB of the disk. The second stage is loaded by cluster, so the
+;   size limit is lower when clusters are bigger. Long file names aren't used,
+;   so the writing utility must be configured to write an appropriate short
+;   file name.
 ; Bugs: None? The disk address packet is only 2-byte aligned, but so far that
 ;   hasn't caused any issues.
+
+; Error 0: Failed to read disk.
+;   Make sure the BIOS is configured correctly. If possible, try using a
+;   different disk.
+; Error 1: Failed to get disk parameters.
+;   Make sure the BIOS is configured correctly. If you're using a floppy disk,
+;   make sure the BIOS supports 3½-inch disks, even if you're using a 5¼-inch
+;   disk.
+; Error 2: Out of memory.
+;   The 2ndstage.bin file doesn't fit in the available conventional memory.
+;   You're not likely to see this error, but in case you do, try decreasing
+;   the cluster size, increasing the amount of conventional memory, or using a
+;   smaller 2ndstage.bin file.
+; Error 3: No 2ndstage.bin file.
+;   Make sure there is a file named 2ndstage.bin in the root directory of the
+;   disk. Try renaming the file using all lowercase or all uppercase letters.
 
 BITS 16
 CPU 8086
@@ -120,7 +139,8 @@ highstart:
     pop cx
     add di, 32
     loop .loop
-    jmp disk_error
+    mov al, 1 ; error 3
+    jmp disk_error.update
 loadfile:
     ;xchg bx, bx
     mov sp, bp
@@ -154,7 +174,7 @@ loadfile:
     add si, cx
     sub di, cx
     cmp si, di
-    ja disk_error
+    ja disk_error ; CF=0, error 2
     mov es, si
     pop cx
     loop .clusterloop
@@ -199,14 +219,15 @@ done:
     
     
 disk_error:
-    ;xchg bx, bx
+    sbb al, al
+.update:
+    add [cs:msg_error+6], al
     mov cx, msg_error_len
     mov si, msg_error
     mov bx, 0x0007
 .loop:
     mov ah, 0x0e
     cs lodsb
-;   jz infinity     ; looks like i forgot to remove this when i was cleaning up
     int 0x10        ; overwrites ah, bp
     loop .loop
 infinity:
@@ -249,7 +270,7 @@ readsector:
     mov ah, 0x08    ; changes ax, bx, cx, dx, di, es
     mov dl, [bp+2]
     int 0x13        ; HPC-1 = dh; SPT = cl[5:0]; no one cares about max cylinders
-    jc disk_error
+    jc disk_error ; CF=1, error 1
     mov ax, 0x3f
     and cx, ax      ; cx = SPT
     mov al, dh
@@ -282,12 +303,12 @@ readsector:
     push ss
     pop ds
     int 0x13
-;   jc disk_error
     mov sp, bp
     pop cx
     jnc .done
     loop .retry
-;   jmp disk_error
+    mov al, -2 ; error 0
+    jmp disk_error.update
 .done:
     pop bx
     pop dx
@@ -297,14 +318,11 @@ readsector:
     pop di
     pop ds
     pop bp
-    jc .disk_error
     inc ax
     jnz .ret
     inc dx
 .ret:
     ret
-.disk_error:
-    jmp disk_error
     
     
 getfat:
@@ -347,7 +365,7 @@ getfat:
     
     
 msg_error:
-    db "Error!"
+    db "Error 2"
     msg_error_len equ ($-msg_error)
     
 filename:
