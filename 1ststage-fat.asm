@@ -15,7 +15,7 @@
 ; Error 0: Failed to read disk.
 ;   Make sure the BIOS is configured correctly. If possible, try using a
 ;   different disk.
-; Error 1: Failed to get disk parameters.
+; Error 1: Failed to get disk geometry.
 ;   Make sure the BIOS is configured correctly. If you're using a floppy disk,
 ;   make sure the BIOS supports 3½-inch disks, even if you're using a 5¼-inch
 ;   disk.
@@ -28,9 +28,9 @@
 ;   Make sure there is a file named 2ndstage.bin in the root directory of the
 ;   disk. Try renaming the file using all lowercase or all uppercase letters.
 
-BITS 16
-CPU 8086
-ORG 0
+bits 16
+cpu 8086
+org 0
 
 ; Choose the amount of RAM to reserve for the stack: 2 or 4 kB
 %define RAMSIZE 2
@@ -60,7 +60,7 @@ bpb_startlba:   dd 0
                 db 0x00
                 db 0x00
                 db 0x29
-                dd 0x867D5309
+                dd 0x12345678
                 db '1STSTAGEVBR'
 %if FAT == 16
                 db 'FAT16   '
@@ -371,5 +371,5 @@ msg_error:
 filename:
     db "2NDSTAGEBIN" ; file name to load: "2ndstage.bin"
     
-TIMES 510-($-$$) db 0
+times 0x1fe-($-$$) db 0
 dw 0xaa55
