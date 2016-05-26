@@ -25,8 +25,8 @@ bpb_fats:       db 2
                 dw 0
                 db 0xF8
                 dw 0
-                dw 63
-                dw 255
+bpb_sectors:    dw 63
+bpb_heads:      dw 255
 bpb_startlba:   dd 0
                 dd 253952
                 dd 961
@@ -70,7 +70,7 @@ start:
     mov ds, di
     mov cx, 0x100
     rep movsw
-    ;mov ds, ax
+    mov ds, ax
     sti
     mov cl, highstart - fakestart
     push es
@@ -98,10 +98,16 @@ highstart:
     and ah, 0x70
     jz show_error
     cpu 386
-    mov [cs:bpb_drivenumber], dl
-    mov si, msg_geometry
+    mov [bpb_drivenumber], dl
+    mov ah, 0x08
     int 0x13
+    mov si, msg_geometry
     jc show_error
+    movzx dx, dh
+    inc dx
+    mov [bpb_heads], dx
+    and cx, 0x3f
+    mov [bpb_sectors], cx
     
     mov si, msg_temp
     cpu 8086
@@ -117,6 +123,48 @@ show_error:
 infinity:
     hlt
     jmp infinity
+    
+    cpu 386
+    
+readsector:
+    ; edx:eax - sector to read
+    push cs
+    pop ds
+    mov bp, sp
+    add eax, [bpb_startlba]
+    adc edx, 0
+    push edx        ; bp-4: lba [63 .. 32]
+    push eax        ; bp-8: lba [31 ... 0]
+    push es         ; bp-10: destination segment
+    push dword 1    ; bp-14: blocks to transfer
+    push word 16    ; bp-16: size of packet
+    jnz .lba
+    mov cx, [bpb_sectors]; cx = SPT
+    mov bx, [bpb_heads]; bx = HPC
+    mov di, bx
+    imul di, cx     ; di = HPC*SPT
+    mov dx, [bp-6]
+    cmp dx, di
+    jae .lba
+    div di      ; dx = C
+    xchg ax, dx ; al = H
+    div cl      ; ah = S-1
+    mov cl, 2
+    xchg ch, dl ; ch = low bits of C
+    shr dx, cl
+    xchg ah, cl ; cl = S-1
+    inc cx      ; cl = S
+    or cl, dl   ; cl = S | high bits of C
+    xchg al, dh ; dh = H
+    test al, al
+    jz .int13
+.lba:
+    mov ax, 0x4200
+.int13:
+    inc ax
+    les bx, [bp-12]
+    mov dl, [bpb_drivenumber]
+    int 0x13
     
 msg_cpu:
     db "An i386 CPU is required.",0
