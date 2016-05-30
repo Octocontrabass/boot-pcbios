@@ -35,7 +35,7 @@ bpb_startlba:   dd 0
                 dd 961
                 dw 0x0000
                 dw 0x0000
-                dd 2
+bpb_rootdir:    dd 2
                 dw 1
                 dw 6
                 times 12 db 0x00
@@ -117,6 +117,10 @@ highstart:
     mov eax, SECOND_HALF
     cdq
     call readsector
+    mov ax, [sig1]
+    cmp ax, [sig2]
+    mov si, msg_corrupt
+    jne show_error
     
     mov si, msg_temp
     cpu 8086
@@ -149,6 +153,7 @@ readsector:
     push es         ; bp-10: destination segment
     push dword 1    ; bp-14: blocks to transfer
     push word 16    ; bp-16: size of packet
+    mov si, sp
     jnz .lba
     mov cx, [bpb_sectors]; cx = SPT
     mov bx, [bpb_heads]; bx = HPC
@@ -212,15 +217,21 @@ readsector:
 msg_cpu:
     db "An i386 CPU is required.",0
 msg_geometry:
-    db "BIOS geometry error",0
+    db "BIOS geometry error.",0
 msg_read:
-    db " - Read error",0
+    db " - Read error.",0
+msg_corrupt:
+    db "Boot code is corrupt. Please reinstall."
     
 times 0x1fe-($-$$) db 0
+sig1:
 dw 0xaa55
 
 msg_temp:
     db "No errors",0
+filename:
+    db "2NDSTAGEBIN" ; file name to load: "2ndstage.bin"
 
 times 0x3fe-($-$$) db 0
+sig2:
 dw 0xaa55
