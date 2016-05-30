@@ -10,6 +10,9 @@ org 0
 
 ; Choose the amount of RAM to reserve for the stack: 2 or 4 kB
 %define RAMSIZE 2
+; Determine where the second half of the boot code is stored. DOS uses 2, NT
+;   uses 12. Must be a value from 1 to 31.
+%define SECOND_HALF 2
 
 fakestart:
     jmp start
@@ -108,6 +111,12 @@ highstart:
     mov [bpb_heads], dx
     and cx, 0x3f
     mov [bpb_sectors], cx
+    mov ax, cs
+    add ax, 0x20
+    mov es, ax
+    mov eax, SECOND_HALF
+    cdq
+    call readsector
     
     mov si, msg_temp
     cpu 8086
@@ -128,6 +137,8 @@ infinity:
     
 readsector:
     ; edx:eax - sector to read
+    ; es:0 - destination address
+    ; trashes everything
     push cs
     pop ds
     mov bp, sp
@@ -165,15 +176,51 @@ readsector:
     les bx, [bp-12]
     mov dl, [bpb_drivenumber]
     int 0x13
+    jc .error
+    mov sp, bp
+    ret
+.error:
+    xor si, si
+    mov cx, 8
+.outerloop:
+    mov bx, cx
+    mov cx, 2
+    mov al, [bp+si-8]
+    inc si
+    mov dl, al
+.innerloop:
+    and al, 0x0f
+    cmp al, 0x0a
+    sbb al, 0x69
+    das
+    mov ah, 0x0e
+    push ax
+    mov al, dl
+    shr al, 4
+    loop .innerloop
+    mov cx, bx
+    loop .outerloop
+    mov cx, 16
+    mov bx, 0x0007
+.poploop:
+    pop ax
+    int 0x10
+    loop .poploop
+    mov si, msg_read
+    jmp show_error
     
 msg_cpu:
     db "An i386 CPU is required.",0
 msg_geometry:
     db "BIOS geometry error",0
-msg_temp:
-    db "No errors",0
+msg_read:
+    db " - Read error",0
     
 times 0x1fe-($-$$) db 0
 dw 0xaa55
+
+msg_temp:
+    db "No errors",0
+
 times 0x3fe-($-$$) db 0
 dw 0xaa55
