@@ -9,7 +9,8 @@ cpu 8086
 org 0
 
 ; Choose the amount of RAM to reserve for the stack: 2 or 4 kB
-%define RAMSIZE 2
+; todo: probably should always be 4
+%define RAMSIZE 4
 ; Determine where the second half of the boot code is stored. DOS uses 2, NT
 ;   uses 12. Must be a value from 1 to 31.
 %define SECOND_HALF 2
@@ -32,13 +33,14 @@ bpb_sectors:    dw 63
 bpb_heads:      dw 255
 bpb_startlba:   dd 0
                 dd 253952
-                dd 961
+bpb_sperfat:    dd 961
                 dw 0x0000
                 dw 0x0000
 bpb_rootdir:    dd 2
                 dw 1
                 dw 6
-                times 12 db 0x00
+temp_fatsector: times 4 db 0x00
+temp_datastart: times 8 db 0x00
 bpb_drivenumber:db 0x80
                 db 0x00
                 db 0x29
@@ -48,15 +50,15 @@ bpb_drivenumber:db 0x80
 
 
 start:
-    cli
     int 0x12 ; find out how much of the "640k" is actually open
+    cli
 %if RAMSIZE == 4
     mov cl, 6
     shl ax, cl
     dec ah ; reserve 4k
 %else
     dec ax ; reserve 2k
-    dec ax ; of the space reserved, 1k is used by this bootloader
+    dec ax ; of the space reserved, 1.5k is used by this bootloader
     mov cl, 6
     shl ax, cl
 %endif
@@ -120,9 +122,7 @@ highstart:
     mov ax, [sig1]
     cmp ax, [sig2]
     mov si, msg_corrupt
-    jne show_error
-    
-    mov si, msg_temp
+    je loadfile
     cpu 8086
 show_error:
     mov bx, 0x0007
@@ -142,9 +142,10 @@ infinity:
 readsector:
     ; edx:eax - sector to read
     ; es:0 - destination address
+    ; assumes cs=ds
     ; trashes everything
-    push cs
-    pop ds
+    ;push cs
+    ;pop ds
     mov bp, sp
     add eax, [bpb_startlba]
     adc edx, 0
@@ -157,12 +158,11 @@ readsector:
     jnz .lba
     mov cx, [bpb_sectors]; cx = SPT
     mov bx, [bpb_heads]; bx = HPC
-    mov di, bx
-    imul di, cx     ; di = HPC*SPT
+    imul bx, cx     ; bx = HPC*SPT
     mov dx, [bp-6]
-    cmp dx, di
+    cmp dx, bx
     jae .lba
-    div di      ; dx = C
+    div bx      ; dx = C
     xchg ax, dx ; al = H
     div cl      ; ah = S-1
     mov cl, 2
@@ -227,6 +227,75 @@ times 0x1fe-($-$$) db 0
 sig1:
 dw 0xaa55
 
+loadfile:
+    mov dword [temp_fatsector], -1
+    movzx eax, word [bpb_sreserved]
+    cdq
+    movzx cx, byte [bpb_fats]
+.multiplyloop:
+    add eax, [bpb_sperfat]
+    adc edx, 0
+    loop .multiplyloop ; avoid buggy 32-bit mul
+    mov [temp_datastart], eax
+    mov [temp_datastart+4], edx
+    mov eax, [bpb_rootdir]
+    xor ebx, ebx
+    push word 0x60
+    pop es
+    call getcluster
+    
+    mov si, msg_temp
+    jmp show_error
+    
+getcluster:
+    ; eax - cluster number (auto-increment)
+    ; bl - sector within cluster to load (auto-increment)
+    ; es:0 - destination address
+    ; assumes cs=ds, remaining bits of ebx are zero
+    ; trashes everything but eax/ebx?
+    push eax
+    push ebx
+    bsf cx, [bpb_spercluster]
+    cdq
+    sub eax, 2
+    shld edx, eax, cl
+    shl eax, cl ; avoid buggy 32-bit mul
+    add eax, [temp_datastart]
+    adc edx, [temp_datastart+4]
+    add eax, ebx
+    adc edx, 0
+    call readsector
+    pop ebx
+    inc bx
+    cmp bl, [bpb_spercluster]
+    jnb .next
+    pop eax
+    ret
+.next:
+    pop edx
+    mov si, dx
+    shr edx, 7
+    cmp edx, [temp_fatsector]
+    je .skipfat
+    push si
+    mov [temp_fatsector], edx
+    mov ax, cs
+    add ax, 0x40
+    mov es, ax
+    movzx eax, word [bpb_sreserved]
+    add eax, edx
+    cdq
+    call readsector
+    pop si
+.skipfat:
+    and si, 0x7f
+    shl si, 2
+    mov eax, [si+0x400]
+    and eax, 0x0fffffff
+    xor ebx, ebx
+    ret
+    
+    
 msg_temp:
     db "No errors",0
 filename:

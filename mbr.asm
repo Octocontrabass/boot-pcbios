@@ -5,9 +5,9 @@
 ;   not supported.
 ; Bugs: None?
 
-BITS 16
-CPU 8086
-ORG 0
+bits 16
+cpu 8086
+org 0
 
 ; Choose the number of times to try reading the disk before giving up.
 %define TRY_COUNT 3
@@ -55,7 +55,7 @@ load:
     cmp word [es:0x1fe], 0xaa55
     jne print
     mov dx, bx
-    jmp 0x0000:0x7C00
+    jmp 0x0000:0x7c00
     
     
 disk_error:
@@ -63,7 +63,7 @@ disk_error:
 print:
     mov bx, 0x0007
 .loop:
-    mov ah, 0x0E
+    mov ah, 0x0e
     lodsb
     or al, al
     jz infinity
@@ -183,14 +183,14 @@ msg_notfound:
     db "The active partition doesn't look bootable!",13,10,"Is the wrong partition marked active?",0
     
     
-TIMES 446-($-$$) db 0
+times 0x1be-($-$$) db 0
 partitions:
     db 0x80
     db 0x02,0x03,0x00
     db 0x06
-    db 0xFE,0x3F,0x0E
+    db 0xfe,0x3f,0x0e
     dd 128
     dd 249856
     
-TIMES 510-($-$$) db 0
+times 0x1fe-($-$$) db 0
 dw 0xaa55

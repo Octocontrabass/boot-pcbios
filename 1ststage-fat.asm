@@ -70,8 +70,8 @@ bpb_startlba:   dd 0
 
 
 start:
-    cli
     int 0x12 ; find out how much of the "640k" is actually open
+    cli
 %if RAMSIZE == 4
     mov cl, 6
     shl ax, cl
