@@ -178,7 +178,7 @@ readsector:
     mov ax, 0x4200
 .int13:
     inc ax
-    les bx, [bp-12]
+    xor bx, bx
     mov dl, [bpb_drivenumber]
     int 0x13
     jc .error
