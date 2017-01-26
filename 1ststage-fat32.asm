@@ -242,8 +242,55 @@ loadfile:
     xor ebx, ebx
     push word 0x60
     pop es
+.loadloop:
+    push es
     call getcluster
-    
+    pop es
+    push eax
+    push ebx
+    xor si, si
+.fileloop:
+    cmp byte [es:si], 0
+    je .done
+    cmp byte [es:si], 0xe5
+    je .skip
+    test byte [es:si+0x0b], 0x18
+    jnz .skip
+    mov cx, 8
+.printloop1:
+    mov ah, 0x0e
+    es lodsb
+    mov bx, 0x07
+    int 0x10
+    loop .printloop1
+    mov ax, 0x0e00 | '.'
+    mov bx, 0x07
+    int 0x10
+    mov cx, 3
+.printloop2:
+    mov ah, 0x0e
+    es lodsb
+    mov bx, 0x07
+    int 0x10
+    loop .printloop2
+    mov ax, 0x0e0d
+    mov bx, 0x07
+    int 0x10
+    mov ax, 0x0e0a
+    mov bx, 0x07
+    int 0x10
+.skip:
+    add si, 0x20
+    and si, ~0x1f
+    cmp si, 0x200
+    jb .fileloop
+    pop ebx
+    pop eax
+    cmp eax, 0x0ffffff7
+    mov si, msg_dirtest
+    jae show_error
+    jmp .loadloop
+.done:
     mov si, msg_temp
     jmp show_error
     
@@ -298,6 +345,8 @@ getcluster:
     
 msg_temp:
     db "No errors",0
+msg_dirtest:
+    db "Directory ended with no empty space",0
 filename:
     db "2NDSTAGEBIN" ; file name to load: "2ndstage.bin"
 
