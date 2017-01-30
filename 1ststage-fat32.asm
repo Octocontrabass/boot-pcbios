@@ -122,7 +122,7 @@ highstart:
     mov ax, [sig1]
     cmp ax, [sig2]
     mov si, msg_corrupt
-    je loadfile
+    je findfile
     cpu 8086
 show_error:
     mov bx, 0x0007
@@ -227,7 +227,7 @@ times 0x1fe-($-$$) db 0
 sig1:
 dw 0xaa55
 
-loadfile:
+findfile:
     mov dword [temp_fatsector], -1
     movzx eax, word [bpb_sreserved]
     cdq
@@ -248,49 +248,30 @@ loadfile:
     pop es
     push eax
     push ebx
-    xor si, si
+    xor di, di
 .fileloop:
-    cmp byte [es:si], 0
-    je .done
-    cmp byte [es:si], 0xe5
-    je .skip
-    test byte [es:si+0x0b], 0x18
+    ; Microsoft says this check is necessary, but maybe it isn't.
+    ;cmp byte [es:di], 0
+    ;mov si, msg_notfound
+    ;je show_error
+    test byte [es:di+0x0b], 0x18
     jnz .skip
-    mov cx, 8
-.printloop1:
-    mov ah, 0x0e
-    es lodsb
-    mov bx, 0x07
-    int 0x10
-    loop .printloop1
-    mov ax, 0x0e00 | '.'
-    mov bx, 0x07
-    int 0x10
-    mov cx, 3
-.printloop2:
-    mov ah, 0x0e
-    es lodsb
-    mov bx, 0x07
-    int 0x10
-    loop .printloop2
-    mov ax, 0x0e0d
-    mov bx, 0x07
-    int 0x10
-    mov ax, 0x0e0a
-    mov bx, 0x07
-    int 0x10
+    mov cx, 11
+    mov si, filename
+    repe cmpsb
+    je loadfile
 .skip:
-    add si, 0x20
-    and si, ~0x1f
-    cmp si, 0x200
+    add di, 0x20
+    and di, ~0x1f
+    cmp di, 0x200
     jb .fileloop
     pop ebx
     pop eax
     cmp eax, 0x0ffffff7
-    mov si, msg_dirtest
-    jae show_error
-    jmp .loadloop
-.done:
+    jb .loadloop
+    mov si, msg_notfound
+    jmp show_error
+loadfile:
     mov si, msg_temp
     jmp show_error
     
@@ -303,8 +284,8 @@ getcluster:
     push eax
     push ebx
     bsf cx, [bpb_spercluster]
-    cdq
     sub eax, 2
+    cdq
     shld edx, eax, cl
     shl eax, cl ; avoid buggy 32-bit mul
     add eax, [temp_datastart]
@@ -345,8 +326,8 @@ getcluster:
     
 msg_temp:
     db "No errors",0
-msg_dirtest:
-    db "Directory ended with no empty space",0
+msg_notfound:
+    db "Missing 2ndstage.bin file.",0
 filename:
     db "2NDSTAGEBIN" ; file name to load: "2ndstage.bin"
 
