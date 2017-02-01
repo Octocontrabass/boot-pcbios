@@ -272,6 +272,21 @@ findfile:
     mov si, msg_notfound
     jmp show_error
 loadfile:
+    mov ecx, [es:di+0x11]
+    add ecx, 0x1ff
+    mov si, msg_toobig
+    jc show_error
+    shr ecx, 9
+    mov si, msg_toosmall
+    jz show_error
+    mov ax, cs
+    sub ax, 0x60
+    shr ax, 5
+    movzx eax, ax
+    cmp ecx, eax
+    mov si, msg_toobig
+    ja show_error
+    
     mov si, msg_temp
     jmp show_error
     
@@ -328,6 +343,10 @@ msg_temp:
     db "No errors",0
 msg_notfound:
     db "Missing 2ndstage.bin file.",0
+msg_toobig:
+    db "Too big 2ndstage.bin file.",0
+msg_toosmall:
+    db "Empty 2ndstage.bin file.",0
 filename:
     db "2NDSTAGEBIN" ; file name to load: "2ndstage.bin"
 
