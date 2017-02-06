@@ -301,6 +301,7 @@ loadfile:
     mov es, cx
     pop cx
     loop .loadloop
+    mov dl, [bpb_drivenumber]
     jmp 0:0x600
     
 getcluster:
