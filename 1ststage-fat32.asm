@@ -301,9 +301,7 @@ loadfile:
     mov es, cx
     pop cx
     loop .loadloop
-    
-    mov si, msg_temp
-    jmp show_error
+    jmp 0:0x600
     
 getcluster:
     ; eax - cluster number (auto-increment)
@@ -354,8 +352,6 @@ getcluster:
     ret
     
     
-msg_temp:
-    db "No errors",0
 msg_notfound:
     db "Missing 2ndstage.bin file.",0
 msg_toobig:
