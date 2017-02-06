@@ -272,7 +272,7 @@ findfile:
     mov si, msg_notfound
     jmp show_error
 loadfile:
-    mov ecx, [es:di+0x11]
+    mov ecx, [es:di+0x1c-0xb]
     add ecx, 0x1ff
     mov si, msg_toobig
     jc show_error
@@ -286,6 +286,21 @@ loadfile:
     cmp ecx, eax
     mov si, msg_toobig
     ja show_error
+    mov ax, [es:di+0x14-0xb]
+    shl eax, 16
+    mov ax, [es:di+0x1a-0xb]
+    xor ebx, ebx
+    push word 0x60
+    pop es
+.loadloop:
+    push cx
+    push es
+    call getcluster
+    pop cx
+    add cx, 0x20
+    mov es, cx
+    pop cx
+    loop .loadloop
     
     mov si, msg_temp
     jmp show_error
