@@ -221,7 +221,7 @@ done:
 disk_error:
     sbb al, al
 .update:
-    add [cs:msg_error+6], al
+    add [cs:msg_error+msg_error_len-1], al
     mov cx, msg_error_len
     mov si, msg_error
     mov bx, 0x0007
@@ -230,6 +230,9 @@ disk_error:
     cs lodsb
     int 0x10        ; overwrites ah, bp
     loop .loop
+    xchg ax, bx
+    int 0x16
+    int 0x18
 infinity:
     hlt
     jmp infinity
@@ -267,6 +270,8 @@ readsector:
     mov cl, 16
     push cx     ; bp-16 - size of packet
     mov si, sp
+    push dx
+    push ax
     mov ah, 0x08    ; changes ax, bx, cx, dx, di, es
     mov dl, [bp+2]
     int 0x13        ; HPC-1 = dh; SPT = cl[5:0]; no one cares about max cylinders
@@ -277,10 +282,10 @@ readsector:
     inc ax          ; ax = HPC
     mul cx
     xchg bx, ax     ; bx = HPC*SPT
-    mov dx, [bp-6]
+    pop ax
+    pop dx
     cmp dx, bx
     jae .lba        ; use LBA if the division would overflow
-    mov ax, [bp-8]
     div bx          ; dx = C
     xchg ax, dx     ; al = H
     div cl          ; ah = S-1
@@ -365,8 +370,8 @@ getfat:
     
     
 msg_error:
-    db "Error 2"
-    msg_error_len equ ($-msg_error)
+    db "Err "
+    msg_error_len equ ($-msg_error+1)
     
 filename:
     db "2NDSTAGEBIN" ; file name to load: "2ndstage.bin"
