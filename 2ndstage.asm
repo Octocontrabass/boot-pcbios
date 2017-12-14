@@ -20,7 +20,7 @@ boot:
 .cylinders: resw 1
 .heads:     resw 1
 .sectors:   resb 1
-            resb 1
+.fs:        resb 1
 .partition: resq 1
 
 section code start=0 vstart=0x600
@@ -108,6 +108,28 @@ partition:
 section data
 
 .tpart: db "Partition: 0x",0
+
+section code
+    
+filesystem:
+    mov si, .tfs
+    call print
+    call getfs
+    mov al, [boot.fs]
+    cbw
+    shl ax, 1
+    xchg ax, si
+    mov si, [si+.tt]
+    call printcrlf
+    
+section data
+
+.tfs:   db "Filesystem: ",0
+.tu:    db "Unknown",0
+.t12:   db "FAT12",0
+.t16:   db "FAT16",0
+.t32:   db "FAT32",0
+.tt:    dw .tu, .t12, .t16, .t32
 
 section code
     
@@ -402,6 +424,82 @@ lba2chs:
     neg al          ; set carry if al is nonzero
 .ret:
     pop bx
+    ret
+    
+getfs:
+    xor ax, ax
+    cwd
+    mov bx, temp
+    push bx
+    call [getsector]
+    pop si
+    mov ax, [si+17] ;BPB_RootEntCnt
+    mov dx, 32
+    mul dx
+    mov cx, 0x1ff
+    add ax, cx
+    adc dx, 0
+    inc cx
+    cmp cx, [si+11] ;BPB_BytsPerSec (only 512 is supported here)
+    jne .fail
+    div cx
+    xor cx, cx
+    mov cl, [si+16] ;BPB_NumFATs (must not be zero)
+    jcxz .fail
+    xor dx, dx
+    mov bp, [si+22] ;BPB_FATSz16 (if this is zero...)
+    xor di, di
+    test bp, bp
+    jnz .fatsz
+    mov bp, [si+36] ;BPB_FATSz32 (...then this must not be zero)
+    mov di, [si+38]
+.fatsz:
+    add ax, bp
+    adc dx, di
+    jc .fail
+    loop .fatsz
+    or bp, si
+    jz .fail
+    mov cx, [si+14] ;BPB_RsvdSecCnt (must not be zero)
+    jcxz .fail
+    add ax, cx
+    adc dx, 0
+    jc .fail
+    push dx
+    push ax
+    xor dx, dx
+    mov ax, [si+19] ;BPB_TotSec16 (like earlier, if this is zero...)
+    test ax, ax
+    jnz .totsec
+    mov ax, [si+32] ;BPB_TotSec32 (...then this must not be zero)
+    mov dx, [si+34]
+.totsec:
+    pop cx
+    sub ax, cx
+    pop cx
+    sbb dx, cx
+    jc .fail
+    xor cx, cx
+    mov cl, [si+13] ;BPB_SecPerClus (must not be zero)
+    jcxz .fail
+    cmp dx, cx
+    jae .fat32
+    div cx
+    
+    ;call printdec
+    ;call crlf
+    
+    cmp ax, 4085
+    jb .fat12
+    cmp ax, 65525
+    jb .fat16
+.fat32:
+    inc byte [boot.fs]
+.fat16:
+    inc byte [boot.fs]
+.fat12:
+    inc byte [boot.fs]
+.fail:
     ret
     
     
