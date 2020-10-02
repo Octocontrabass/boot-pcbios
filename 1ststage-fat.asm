@@ -207,14 +207,13 @@ readsector:
 	mov [dap.lba+2], dx
 	mov [dap.lba+4], cx
 	jnz .lba
-	push ax
+	xchg ax, bx
 	push dx
 	mov ax, [bpb.heads]
 	mov cx, [bpb.spt]
 	mul cx
 	xchg ax, bx
 	pop dx
-	pop ax
 	cmp dx, bx
 	jae .lba
 	div bx			; ax = cylinder, dx = sector in cylinder
